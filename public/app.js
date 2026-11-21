@@ -2,13 +2,43 @@ const app=document.querySelector('#app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const room=new URL(location.href).searchParams.get('room');
 let session=room?localStorage.getItem('coup:'+room):null, game=null, error='', busy=false, target='', selected=[];
+let soundEnabled=localStorage.getItem('coup:sound')!=='off', audioContext;
+function unlockSound(){
+ if(!soundEnabled)return;
+ try{const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;audioContext ||= new Audio();if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});}catch{}
+}
+document.addEventListener('pointerdown',unlockSound,{passive:true});
+document.addEventListener('keydown',unlockSound);
+function playSound(kind){
+ if(!soundEnabled||!audioContext||audioContext.state!=='running')return;
+ try{
+  const now=audioContext.currentTime;
+  const notes=kind==='coin'?[[740,0,.1],[990,.09,.12],[1320,.19,.2]]:[[440,0,.16],[370,.15,.18],[275,.31,.32]];
+  for(const [frequency,offset,duration] of notes){
+   const oscillator=audioContext.createOscillator(),gain=audioContext.createGain(),start=now+offset;
+   oscillator.type=kind==='coin'?'triangle':'sine';oscillator.frequency.setValueAtTime(frequency,start);
+   if(kind==='loss')oscillator.frequency.exponentialRampToValueAtTime(frequency*.85,start+duration);
+   gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(.1,start+.015);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
+   oscillator.connect(gain);gain.connect(audioContext.destination);oscillator.start(start);oscillator.stop(start+duration+.02);
+  }
+ }catch{}
+}
+function soundForUpdate(previous,next){
+ if(!previous||!next||previous.phase==='lobby'||next.phase==='lobby')return;
+ const before=previous.log||[],after=next.log||[];
+ let overlap=Math.min(before.length,after.length);
+ while(overlap>0&&!after.slice(-overlap).every((entry,i)=>entry===before[i]))overlap--;
+ const fresh=after.slice(0,after.length-overlap);
+ if(fresh.some(line=>/ reveals (Duke|Assassin|Captain|Ambassador|Contessa)(?:\.| and is eliminated\.)$/.test(line)))playSound('loss');
+ else if(fresh.some(line=>/ (?:takes [123] coins?\.|steals [12] coins from .+\.)$/.test(line)))playSound('coin');
+}
 const names={income:'Income',aid:'Foreign aid',coup:'Coup',tax:'Tax',assassinate:'Assassinate',steal:'Steal',exchange:'Exchange'};
 const glyphs={Duke:'♛',Assassin:'⚔',Captain:'⚓',Ambassador:'✦',Contessa:'❖',influence:'◆',income:'◉',aid:'✚',coup:'♜',tax:'♛',assassinate:'⚔',steal:'⚓',exchange:'⇄'};
 const icon=(key,cls='')=>`<span class="icon ${cls}" aria-hidden="true">${glyphs[key]||'◆'}</span>`;
 const descriptions={income:'+1 coin',aid:'+2 coins',coup:'Pay 7 · unblockable',tax:'+3 coins · Duke',assassinate:'Pay 3 · Assassin',steal:'Up to 2 · Captain',exchange:'Swap cards · Ambassador'};
 const card=(role,cls='')=>`<div class="card ${cls}">${icon(role,'card-icon')}<span>${esc(role)}</span></div>`;
 const roles=`<div class="role-list"><p>${icon('Duke')} <b>Duke</b> · Take 3 coins; block foreign aid.</p><p>${icon('Assassin')} <b>Assassin</b> · Pay 3 coins to attack.</p><p>${icon('Captain')} <b>Captain</b> · Steal up to 2 coins; block stealing.</p><p>${icon('Ambassador')} <b>Ambassador</b> · Exchange cards; block stealing.</p><p>${icon('Contessa')} <b>Contessa</b> · Block assassination.</p></div><p>Anyone can challenge a claimed role. A failed challenge costs one influence. At 10 coins, you must coup.</p>`;
-async function api(body,quiet=false){try{const r=await fetch('/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error);if(d.id){localStorage.setItem('coup:'+d.room,d.id);location.href='/?room='+d.room;return}const changed=JSON.stringify(game)!==JSON.stringify(d.game);game=d.game;error='';if(changed||!quiet)render();}catch(e){if(/Room not found|game expired|Player session not found/.test(e.message)){if(room)localStorage.removeItem('coup:'+room);session=null;game=null;error=e.message;render();}else if(!quiet){error=e.message;render()}}}
+async function api(body,quiet=false){try{const r=await fetch('/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error);if(d.id){localStorage.setItem('coup:'+d.room,d.id);location.href='/?room='+d.room;return}const changed=JSON.stringify(game)!==JSON.stringify(d.game);if(changed)soundForUpdate(game,d.game);game=d.game;error='';if(changed||!quiet)render();}catch(e){if(/Room not found|game expired|Player session not found/.test(e.message)){if(room)localStorage.removeItem('coup:'+room);session=null;game=null;error=e.message;render();}else if(!quiet){error=e.message;render()}}}
 function send(message){if(busy)return;busy=true;api({op:'command',room,id:session,message}).finally(()=>busy=false)}
 const leaveDialog=document.querySelector('#leave-dialog');
 let requestedNewGame=false;
@@ -45,8 +75,9 @@ function render(){if(!game){renderLanding();return}const g=game,me=g.players.fin
   panel=`<p>${name(q.actor)} declared <b>${esc(names[q.action])}</b>${q.target?' against '+name(q.target):''}. ${g.phase==='challenge-block'?`${name(q.blocker)} claims ${esc(q.blockRole)} to block.`:''}</p><div class="actions"><button data-type="pass">Pass</button>${g.phase!=='block-response'?'<button class="danger" data-type="challenge">Challenge claim</button>':''}${blocks.map(r=>`<button data-block="${r}">${icon(r)} Block as ${r}</button>`).join('')}</div><p class="hint section">Passing applies to this response window.</p>`;
  }else panel=`<p class="muted">${g.phase==='turn'?`Waiting for ${name(g.turn)} to choose an action.`:'Waiting for the table to respond.'}</p>`;
  if(waiting) panel+=waiting;
- app.innerHTML=`<main class="shell"><header class="top"><div class="brand">COUP<span class="accent">.</span></div><span>THE COURT IS IN SESSION</span></header><div class="tablehead"><div><div class="eyebrow">Private table · ${g.players.length} players</div><h1>${status}</h1><div class="muted">${g.phase==='lobby'?'Gather your allies. Choose them carefully.':'Your influence is visible only to you.'}</div></div><div class="table-controls"><button id="copy">Copy invite link</button><button id="new-game">New game</button><button id="exit-game">Exit game</button></div></div><div class="layout"><div><div class="players">${g.players.map(x=>`<article class="player ${g.turn===x.id&&g.phase!=='lobby'&&g.phase!=='finished'?'current':''}"><h3>${esc(x.name)} ${x.id===g.me?'<small> · YOU</small>':''} ${x.id===g.host?'<small> · HOST</small>':''} ${x.left?'<small> · LEFT</small>':''}</h3>${g.phase==='lobby'?'<span class="muted">Ready to play</span>':`<span class="coins">${icon('income')} ${x.coins} coins</span><div class="cards">${x.cards?x.cards.map(c=>card(c)).join(''):Array.from({length:x.count},()=>card('influence','hidden')).join('')}${x.revealed.map(c=>card(c,'dead')).join('')}</div>`}</article>`).join('')}</div><section class="panel section"><div class="eyebrow">${myturn?'Your move':'The table'}</div><h2>${myturn?'Make your play':status}</h2>${panel}<div class="error" role="alert">${esc(error)}</div></section></div><aside><section class="panel"><div class="eyebrow">The court</div><h2>Game history</h2><ul class="history">${g.log.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section><section class="panel section roles"><details><summary>How to play</summary>${roles}<p>Income cannot be blocked. Anyone may block foreign aid as Duke. Only the target may block stealing or assassination. A coup costs 7 and cannot be blocked.</p></details></section></aside></div><div class="footer">Coup · An independent adaptation · 3–6 players</div></main>`;
+ app.innerHTML=`<main class="shell"><header class="top"><div class="brand">COUP<span class="accent">.</span></div><span>THE COURT IS IN SESSION</span></header><div class="tablehead"><div><div class="eyebrow">Private table · ${g.players.length} players</div><h1>${status}</h1><div class="muted">${g.phase==='lobby'?'Gather your allies. Choose them carefully.':'Your influence is visible only to you.'}</div></div><div class="table-controls"><button id="sound-toggle" aria-pressed="${soundEnabled}" aria-label="${soundEnabled?'Mute game sounds':'Turn on game sounds'}">${soundEnabled?'♫ Sound on':'♫ Sound off'}</button><button id="copy">Copy invite link</button><button id="new-game">New game</button><button id="exit-game">Exit game</button></div></div><div class="layout"><div><div class="players">${g.players.map(x=>`<article class="player ${g.turn===x.id&&g.phase!=='lobby'&&g.phase!=='finished'?'current':''}"><h3>${esc(x.name)} ${x.id===g.me?'<small> · YOU</small>':''} ${x.id===g.host?'<small> · HOST</small>':''} ${x.left?'<small> · LEFT</small>':''}</h3>${g.phase==='lobby'?'<span class="muted">Ready to play</span>':`<span class="coins">${icon('income')} ${x.coins} coins</span><div class="cards">${x.cards?x.cards.map(c=>card(c)).join(''):Array.from({length:x.count},()=>card('influence','hidden')).join('')}${x.revealed.map(c=>card(c,'dead')).join('')}</div>`}</article>`).join('')}</div><section class="panel section"><div class="eyebrow">${myturn?'Your move':'The table'}</div><h2>${myturn?'Make your play':status}</h2>${panel}<div class="error" role="alert">${esc(error)}</div></section></div><aside><section class="panel"><div class="eyebrow">The court</div><h2>Game history</h2><ul class="history">${g.log.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section><section class="panel section roles"><details><summary>How to play</summary>${roles}<p>Income cannot be blocked. Anyone may block foreign aid as Duke. Only the target may block stealing or assassination. A coup costs 7 and cannot be blocked.</p></details></section></aside></div><div class="footer">Coup · An independent adaptation · 3–6 players</div></main>`;
  document.querySelectorAll('#copy').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(location.origin+'/?room='+room);b.textContent='Copied!'}catch{error='Copy the invite link from your address bar.';render()}});
+ document.querySelector('#sound-toggle')?.addEventListener('click',()=>{soundEnabled=!soundEnabled;localStorage.setItem('coup:sound',soundEnabled?'on':'off');if(soundEnabled){unlockSound();if(audioContext?.state==='running')playSound('coin');}render()});
  document.querySelector('#exit-game')?.addEventListener('click',()=>confirmLeave());
  document.querySelector('#new-game')?.addEventListener('click',()=>confirmLeave(true));
  document.querySelector('#target')?.addEventListener('change',e=>target=e.target.value);
