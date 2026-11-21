@@ -28,7 +28,7 @@ function start(g,id) {
  g.deck=shuffle(ROLES.flatMap(r=>[r,r,r]));
  for(const p of g.players){p.coins=2;p.cards=[g.deck.pop(),g.deck.pop()];p.revealed=[];}
  if(g.players.length===2)g.players[0].coins=1;
- g.turn=0;g.phase='turn';g.pending=null;g.log=[];log(g,`${g.players[0].name} starts the game.`);
+ g.turn=0;g.phase='turn';g.pending=null;g.challengeResult=null;g.log=[];log(g,`${g.players[0].name} starts the game.`);
 }
 export function leave(g,id) {
  const p=player(g,id);if(p.left) fail('Player has already left.');
@@ -117,7 +117,9 @@ export function command(g,id,msg) {
    const isBlock=g.phase==='challenge-block', claimant=player(g,isBlock?q.blocker:q.actor), role=isBlock?q.blockRole:CLAIM[q.action];
    if(!role) fail('This cannot be challenged.');
    log(g,`${p.name} challenges ${claimant.name}'s ${role} claim.`);
-   if(claimant.cards.includes(role)){
+   const proved=claimant.cards.includes(role);
+   g.challengeResult={challenger:id,claimant:claimant.id,role,loser:proved?id:claimant.id,proved};
+   if(proved){
     claimant.cards.splice(claimant.cards.indexOf(role),1);g.deck.push(role);shuffle(g.deck);claimant.cards.push(g.deck.pop());
     log(g,`${claimant.name} reveals ${role}, then draws a replacement. ${p.name} loses the challenge.`);
     return lose(g,id,isBlock?'blocked':'action');
@@ -138,5 +140,5 @@ export function command(g,id,msg) {
 }
 export function view(g,id) {
  const me=player(g,id),q=g.pending;
- return {phase:g.phase,me:id,host:g.players.find(p=>!p.left)?.id,turn:g.players[g.turn]?.id,winner:g.winner,players:g.players.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar??i,coins:p.coins,count:p.cards.length,revealed:p.revealed,left:!!p.left,cards:p.id===id?p.cards:undefined})),log:g.log,pending:q?{action:q.action,actor:q.actor,target:q.target,blocker:q.blocker,blockRole:q.blockRole,waiting:q.waiting,passed:q.passed,loser:q.loser,options:g.phase==='exchange'&&q.actor===id?q.options:undefined,keep:g.phase==='exchange'&&q.actor===id?q.keep:undefined}:null};
+ return {phase:g.phase,me:id,host:g.players.find(p=>!p.left)?.id,turn:g.players[g.turn]?.id,winner:g.winner,challengeResult:g.challengeResult||null,players:g.players.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar??i,coins:p.coins,count:p.cards.length,revealed:p.revealed,left:!!p.left,cards:p.id===id?p.cards:undefined})),log:g.log,pending:q?{action:q.action,actor:q.actor,target:q.target,blocker:q.blocker,blockRole:q.blockRole,waiting:q.waiting,passed:q.passed,loser:q.loser,options:g.phase==='exchange'&&q.actor===id?q.options:undefined,keep:g.phase==='exchange'&&q.actor===id?q.keep:undefined}:null};
 }

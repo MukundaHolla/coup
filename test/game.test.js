@@ -68,3 +68,14 @@ test('two players can challenge and block claims',()=>{
  command(g,'a',{type:'challenge'});assert.equal(g.phase,'lose');command(g,'a',{type:'lose',index:0});
  assert.equal(g.phase,'turn');assert.equal(g.players[g.turn].id,'b');
 });
+test('challenge results name the loser for every player and remain visible across turns',()=>{
+ const g=setup();g.players[0].cards=['Captain','Contessa'];command(g,'a',{type:'action',action:'tax'});command(g,'b',{type:'challenge'});
+ for(const id of ['a','b','c'])assert.deepEqual(view(g,id).challengeResult,{challenger:'b',claimant:'a',role:'Duke',loser:'a',proved:false});
+ command(g,'a',{type:'lose',index:0});assert.equal(view(g,'c').challengeResult.loser,'a');
+ assert.throws(()=>command(g,'b',{type:'action',action:'coup',target:'a'}));assert.equal(view(g,'c').challengeResult.loser,'a');
+ command(g,'b',{type:'action',action:'income'});assert.equal(view(g,'c').challengeResult.loser,'a');
+});
+test('a failed challenge identifies the challenger as the loser',()=>{
+ const g=setup();g.players[0].cards=['Duke','Captain'];command(g,'a',{type:'action',action:'tax'});command(g,'c',{type:'challenge'});
+ assert.deepEqual(view(g,'b').challengeResult,{challenger:'c',claimant:'a',role:'Duke',loser:'c',proved:true});
+});
