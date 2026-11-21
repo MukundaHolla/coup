@@ -56,7 +56,18 @@ function next(g) {
  do {g.turn=(g.turn+1)%g.players.length} while(!alive(g.players[g.turn]));
  g.phase='turn';g.pending=null;log(g,`${g.players[g.turn].name}'s turn.`);
 }
-function wait(g,phase,ids){g.phase=phase;g.pending.waiting=ids;g.pending.passed=[]; if(!ids.length) advance(g);}
+export const RESPONSE_MS=15_000;
+function wait(g,phase,ids){g.phase=phase;g.pending.waiting=ids;g.pending.passed=[];g.pending.deadline=['action-response','challenge-block'].includes(phase)?Date.now()+RESPONSE_MS:null; if(!ids.length) advance(g);}
+// A single shared response window gives every eligible player the same deadline.
+export function updateResponseTimer(g,now=Date.now()){
+ const q=g.pending;
+ if(!q||!['action-response','challenge-block'].includes(g.phase))return false;
+ if(!Number.isFinite(q.deadline)){q.deadline=now+RESPONSE_MS;return true;}
+ if(now<q.deadline)return false;
+ const remaining=q.waiting.filter(id=>!q.passed.includes(id));
+ for(const id of remaining){q.passed.push(id);log(g,`${player(g,id).name} timed out and passed.`);}
+ advance(g);return true;
+}
 function advance(g) {
  const q=g.pending;
  if(g.phase==='action-response') {
@@ -67,7 +78,7 @@ function advance(g) {
  if(g.phase==='block-response') return resolve(g);
  if(g.phase==='challenge-block') {log(g,`${player(g,q.blocker).name}'s block stands.`);return next(g);}
 }
-function lose(g,id,continuation){g.phase='lose';g.pending.loser=id;g.pending.continuation=continuation;}
+function lose(g,id,continuation){g.phase='lose';g.pending.deadline=null;g.pending.loser=id;g.pending.continuation=continuation;}
 function afterLoss(g) {
  const q=g.pending, c=q.continuation;
  if(g.players.filter(alive).length===1) return next(g);
@@ -140,5 +151,5 @@ export function command(g,id,msg) {
 }
 export function view(g,id) {
  const me=player(g,id),q=g.pending;
- return {phase:g.phase,me:id,host:g.players.find(p=>!p.left)?.id,turn:g.players[g.turn]?.id,winner:g.winner,challengeResult:g.challengeResult||null,players:g.players.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar??i,coins:p.coins,count:p.cards.length,revealed:p.revealed,left:!!p.left,cards:p.id===id?p.cards:undefined})),log:g.log,pending:q?{action:q.action,actor:q.actor,target:q.target,blocker:q.blocker,blockRole:q.blockRole,waiting:q.waiting,passed:q.passed,loser:q.loser,options:g.phase==='exchange'&&q.actor===id?q.options:undefined,keep:g.phase==='exchange'&&q.actor===id?q.keep:undefined}:null};
+ return {phase:g.phase,me:id,host:g.players.find(p=>!p.left)?.id,turn:g.players[g.turn]?.id,winner:g.winner,challengeResult:g.challengeResult||null,players:g.players.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar??i,coins:p.coins,count:p.cards.length,revealed:p.revealed,left:!!p.left,cards:p.id===id?p.cards:undefined})),log:g.log,pending:q?{action:q.action,actor:q.actor,target:q.target,blocker:q.blocker,blockRole:q.blockRole,waiting:q.waiting,passed:q.passed,deadline:q.deadline,loser:q.loser,options:g.phase==='exchange'&&q.actor===id?q.options:undefined,keep:g.phase==='exchange'&&q.actor===id?q.keep:undefined}:null};
 }

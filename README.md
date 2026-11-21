@@ -1,6 +1,6 @@
 # Coup for friends
 
-A small independent browser adaptation of the base game of Coup for 2–6 friends. Create a room, share its invite link, and play without accounts. The server enforces turns, challenges, blocks and hidden hands. Players explicitly pass when they don't want to respond; there are no response timers.
+A small independent browser adaptation of the base game of Coup for 2–6 friends. Create a room, share its invite link, and play without accounts. The server enforces turns, challenges, blocks and hidden hands. Players have 15 seconds to challenge a character claim; anyone who does not respond automatically passes. Blocking decisions are untimed.
 
 ## Play locally
 
@@ -13,7 +13,7 @@ npm run dev
 
 Open http://localhost:3000. To play on the same local network, use your computer's LAN address and port 3000 instead; the built-in local server keeps rooms only in memory, so restarting it clears games. A local address is not accessible to friends over the internet without additional networking.
 
-Create a table, share the link and wait for 2–6 players. The host starts the game. Each player must use their own browser profile or device: a room seat is saved in local storage so a refresh can reconnect it. Clearing browser storage loses that seat. Keep the link private; anyone with it can join an open lobby. Do not share your browser session, because its token controls your seat. All living players must respond to each applicable challenge or block window to advance. A disconnected player can reconnect in the same browser; there is no kick option. Use **Exit game** to leave; in an active game this forfeits your influence. **New game** leaves the current table and creates a fresh one. Rooms expire after 10 minutes without a player joining, leaving, or making a game move; merely keeping the page open does not reset the timer.
+Create a table, share the link and wait for 2–6 players. The host starts the game. Each player must use their own browser profile or device: a room seat is saved in local storage so a refresh can reconnect it. Clearing browser storage loses that seat. Keep the link private; anyone with it can join an open lobby. Do not share your browser session, because its token controls your seat. All eligible players can respond to a challenge; unanswered challenges automatically pass after 15 seconds. Blocking decisions do not have a timer. A disconnected player can reconnect in the same browser; there is no kick option. Use **Exit game** to leave; in an active game this forfeits your influence. **New game** leaves the current table and creates a fresh one. Rooms expire after 10 minutes without a player joining, leaving, or making a game move; merely keeping the page open does not reset the timer.
 
 ## How a game is played
 

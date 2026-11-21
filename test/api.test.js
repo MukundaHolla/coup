@@ -30,3 +30,12 @@ test('leaving a lobby transfers the host and removes the last room',()=>{
  assert.throws(()=>processRoom(state,{op:'view',id:host.id}),/session not found/);
  ({state}=processRoom(state,{op:'leave',id:friend.id}));assert.equal(state,null);
 });
+
+test('late response cannot pass a later blocking window and reads do not extend inactivity',()=>{
+ let {state,result:host}=processRoom(null,{op:'create',name:'Host'});let friend;({state,result:friend}=processRoom(state,{op:'join',name:'Friend'}));
+ ({state}=processRoom(state,{op:'command',id:host.id,message:{type:'start'}}));
+ ({state}=processRoom(state,{op:'command',id:host.id,message:{type:'action',action:'steal',target:state.players[1].id}}));
+ const deadline=state.pending.deadline;const lastActivity=state.lastActivity;let result;
+ ({state,result}=processRoom(state,{op:'command',id:friend.id,message:{type:'pass',window:{phase:'action-response',deadline}}},deadline));
+ assert.equal(state.phase,'block-response');assert.deepEqual(state.pending.passed,[]);assert.equal(result.notice,'That response window has ended.');assert.equal(state.lastActivity,lastActivity);
+});

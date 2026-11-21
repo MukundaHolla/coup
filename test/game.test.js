@@ -79,3 +79,23 @@ test('a failed challenge identifies the challenger as the loser',()=>{
  const g=setup();g.players[0].cards=['Duke','Captain'];command(g,'a',{type:'action',action:'tax'});command(g,'c',{type:'challenge'});
  assert.deepEqual(view(g,'b').challengeResult,{challenger:'c',claimant:'a',role:'Duke',loser:'c',proved:true});
 });
+
+test('challenge timer waits fifteen seconds and automatically passes only missing players',async()=>{
+ const {updateResponseTimer,RESPONSE_MS}=await import('../src/game.js');const g=setup();const before=Date.now();
+ command(g,'a',{type:'action',action:'tax'});const deadline=g.pending.deadline;
+ assert.ok(deadline>=before+RESPONSE_MS&&deadline<=Date.now()+RESPONSE_MS);
+ command(g,'b',{type:'pass'});assert.equal(updateResponseTimer(g,deadline-1),false);assert.equal(g.phase,'action-response');
+ assert.equal(updateResponseTimer(g,deadline),true);assert.equal(g.phase,'turn');assert.equal(g.players[0].coins,5);
+ assert.ok(g.log.some(x=>x==='c timed out and passed.'));assert.ok(!g.log.some(x=>x==='b timed out and passed.'));
+ assert.equal(updateResponseTimer(g,deadline+1000),false);
+});
+test('block challenges get a fresh timer but block decisions remain untimed',async()=>{
+ const {updateResponseTimer}=await import('../src/game.js');const g=setup();command(g,'a',{type:'action',action:'steal',target:'b'});const d=g.pending.deadline;
+ updateResponseTimer(g,d);assert.equal(g.phase,'block-response');assert.equal(g.pending.deadline,null);
+ command(g,'b',{type:'block',role:'Captain'});assert.equal(g.phase,'challenge-block');assert.ok(Number.isFinite(g.pending.deadline));
+ updateResponseTimer(g,g.pending.deadline);assert.equal(g.phase,'turn');assert.equal(g.players[0].coins,2);
+});
+test('a challenge before the deadline ends the timer and requires influence selection',async()=>{
+ const {updateResponseTimer}=await import('../src/game.js');const g=setup();command(g,'a',{type:'action',action:'tax'});const d=g.pending.deadline;command(g,'b',{type:'challenge'});
+ assert.equal(g.phase,'lose');assert.equal(g.pending.deadline,null);assert.equal(updateResponseTimer(g,d+10000),false);
+});

@@ -1,8 +1,9 @@
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {processRoom,roomCode,expired} from './api.js';
+import {updateResponseTimer} from './game.js';
 const rooms=new Map(),root=new URL('../public/',import.meta.url);
-setInterval(()=>{for(const [code,state] of rooms)if(expired(state))rooms.delete(code)},60000).unref();
+setInterval(()=>{for(const [code,state] of rooms){if(expired(state))rooms.delete(code);else updateResponseTimer(state)}},1000).unref();
 const server=http.createServer(async(req,res)=>{
  try{
   const url=new URL(req.url,'http://localhost');

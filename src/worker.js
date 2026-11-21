@@ -1,5 +1,6 @@
 import {DurableObject} from 'cloudflare:workers';
-import {processRoom,roomCode,IDLE_MS,expired} from './api.js';
+import {processRoom,roomCode,expired,nextWakeAt} from './api.js';
+import {updateResponseTimer} from './game.js';
 export class Room extends DurableObject {
  async request(body){
   // Synchronous SQLite transactions serialize each complete state transition.
@@ -8,11 +9,11 @@ export class Room extends DurableObject {
    const row=sql.exec('SELECT state FROM game WHERE id=1').toArray()[0];
    const {state,result}=processRoom(row?JSON.parse(row.state):null,body);
    if(!state)sql.exec('DELETE FROM game WHERE id=1');
-   else if(body.op!=='view'||!row||!JSON.parse(row.state).lastActivity)sql.exec('INSERT INTO game VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET state=excluded.state',JSON.stringify(state));
+   else if(!row||JSON.stringify(state)!==row.state)sql.exec('INSERT INTO game VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET state=excluded.state',JSON.stringify(state));
    return {result,state};
   });
   if(!outcome.state)await this.ctx.storage.deleteAll();
-  else if(body.op!=='view'||!await this.ctx.storage.getAlarm())await this.ctx.storage.setAlarm(outcome.state.lastActivity+IDLE_MS);
+  else await this.ctx.storage.setAlarm(nextWakeAt(outcome.state));
   return outcome.result;
  }
  async alarm(){
@@ -22,7 +23,7 @@ export class Room extends DurableObject {
   if(!row)return;
   const state=JSON.parse(row.state);
   if(expired(state))await this.ctx.storage.deleteAll();
-  else await this.ctx.storage.setAlarm((state.lastActivity||Date.now())+IDLE_MS);
+  else {if(updateResponseTimer(state))this.ctx.storage.sql.exec('UPDATE game SET state=? WHERE id=1',JSON.stringify(state));await this.ctx.storage.setAlarm(nextWakeAt(state));}
  }
 }
 export default {async fetch(request,env){
