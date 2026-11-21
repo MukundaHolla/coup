@@ -29,3 +29,10 @@ test('stealing transfers only the available coins after all responses',()=>{
  assert.throws(()=>command(g,'c',{type:'block',role:'Captain'}));
  pass(g,'b');assert.equal(g.players[0].coins,3);assert.equal(g.players[1].coins,0);
 });
+test('a player may bluff assassination without the Assassin and responders are visible',()=>{
+ const g=setup();g.players[0].cards=['Ambassador','Duke'];g.players[0].coins=3;
+ command(g,'a',{type:'action',action:'assassinate',target:'b'});
+ assert.equal(g.phase,'action-response');assert.deepEqual(view(g,'a').pending.waiting,['b','c']);
+ command(g,'b',{type:'pass'});assert.deepEqual(view(g,'a').pending.passed,['b']);
+ command(g,'c',{type:'challenge'});assert.equal(g.phase,'lose');assert.equal(g.pending.loser,'a');
+});
