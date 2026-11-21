@@ -56,7 +56,7 @@ function next(g) {
  do {g.turn=(g.turn+1)%g.players.length} while(!alive(g.players[g.turn]));
  g.phase='turn';g.pending=null;log(g,`${g.players[g.turn].name}'s turn.`);
 }
-export const RESPONSE_MS=15_000;
+export const RESPONSE_MS=25_000;
 function wait(g,phase,ids){g.phase=phase;g.pending.waiting=ids;g.pending.passed=[];g.pending.deadline=['action-response','challenge-block'].includes(phase)?Date.now()+RESPONSE_MS:null; if(!ids.length) advance(g);}
 // A single shared response window gives every eligible player the same deadline.
 export function updateResponseTimer(g,now=Date.now()){
@@ -65,19 +65,22 @@ export function updateResponseTimer(g,now=Date.now()){
  if(!Number.isFinite(q.deadline)){q.deadline=now+RESPONSE_MS;return true;}
  if(now<q.deadline)return false;
  const remaining=q.waiting.filter(id=>!q.passed.includes(id));
- for(const id of remaining){q.passed.push(id);log(g,`${player(g,id).name} timed out and passed.`);}
+ for(const id of remaining){q.passed.push(id);if(q.action==='assassinate'&&g.phase==='action-response'&&id===q.target)q.targetResponse='pass';log(g,`${player(g,id).name} timed out and passed.`);}
  advance(g);return true;
 }
 function advance(g) {
  const q=g.pending;
  if(g.phase==='action-response') {
    if(q.action==='aid') return wait(g,'block-response',opponents(g,q.actor));
+   if(q.action==='assassinate'&&q.targetResponse==='block'&&alive(player(g,q.target)))return beginBlock(g,q.target,'Contessa');
+   if(q.action==='assassinate'&&q.targetResponse==='pass')return resolve(g);
    if(['steal','assassinate'].includes(q.action)&&alive(player(g,q.target))) return wait(g,'block-response',[q.target]);
    return resolve(g);
  }
  if(g.phase==='block-response') return resolve(g);
  if(g.phase==='challenge-block') {log(g,`${player(g,q.blocker).name}'s block stands.`);return next(g);}
 }
+function beginBlock(g,id,role){const q=g.pending;q.blocker=id;q.blockRole=role;log(g,`${player(g,id).name} claims ${role} and blocks.`);return wait(g,'challenge-block',opponents(g,id));}
 function lose(g,id,continuation){g.phase='lose';g.pending.deadline=null;g.pending.loser=id;g.pending.continuation=continuation;}
 function afterLoss(g) {
  const q=g.pending, c=q.continuation;
@@ -118,11 +121,16 @@ export function command(g,id,msg) {
  if(!q) fail('That action is not available.');
  if(['action-response','block-response','challenge-block'].includes(g.phase)) {
   if(!q.waiting.includes(id)||q.passed.includes(id)) fail('You cannot respond now.');
-  if(type==='pass'){q.passed.push(id);if(q.waiting.every(x=>q.passed.includes(x)))advance(g);return;}
+  if(type==='pass'){if(g.phase==='action-response'&&q.action==='assassinate'&&id===q.target)q.targetResponse='pass';q.passed.push(id);if(q.waiting.every(x=>q.passed.includes(x)))advance(g);return;}
+  if(type==='block'&&g.phase==='action-response'&&q.action==='assassinate'&&id===q.target){
+   if(msg.role!=='Contessa')fail('That role cannot block this action.');
+   q.targetResponse='block';q.passed.push(id);log(g,`${p.name} chooses to block as Contessa after the claim is settled.`);
+   if(q.waiting.every(x=>q.passed.includes(x)))advance(g);return;
+  }
   if(type==='block'&&g.phase==='block-response'){
    const allowed=q.action==='aid'?['Duke']:q.action==='assassinate'?['Contessa']:['Captain','Ambassador'];
    if(!allowed.includes(msg.role)) fail('That role cannot block this action.');
-   q.blocker=id;q.blockRole=msg.role;log(g,`${p.name} claims ${msg.role} and blocks.`);return wait(g,'challenge-block',opponents(g,id));
+   return beginBlock(g,id,msg.role);
   }
   if(type==='challenge'&&['action-response','challenge-block'].includes(g.phase)){
    const isBlock=g.phase==='challenge-block', claimant=player(g,isBlock?q.blocker:q.actor), role=isBlock?q.blockRole:CLAIM[q.action];

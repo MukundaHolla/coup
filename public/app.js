@@ -1,7 +1,7 @@
 const app=document.querySelector('#app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const room=new URL(location.href).searchParams.get('room');
-let session=room?localStorage.getItem('coup:'+room):null, game=null, error='', busy=false, target='', selected=[];
+let session=room?localStorage.getItem('coup:'+room):null, game=null, error='', busy=false, selected=[];
 let soundEnabled=localStorage.getItem('coup:sound')!=='off', audioContext;
 const soundBuffers={};
 function loadSound(kind){
@@ -41,6 +41,17 @@ const roles=`<div class="role-list"><p>${icon('Duke')} <b>Duke</b> · Take 3 coi
 async function api(body,quiet=false){try{const r=await fetch('/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error);if(d.id){localStorage.setItem('coup:'+d.room,d.id);location.href='/?room='+d.room;return}const changed=JSON.stringify(game)!==JSON.stringify(d.game);if(changed)soundForUpdate(game,d.game);game=d.game;error=d.notice||'';if(changed||!quiet)render();}catch(e){if(/Room not found|game expired|Player session not found/.test(e.message)){if(room)localStorage.removeItem('coup:'+room);session=null;game=null;error=e.message;render();}else if(!quiet){error=e.message;render()}}}
 function send(message){if(busy)return;if(['pass','challenge','block'].includes(message.type))message.window={phase:game.phase,deadline:game.pending?.deadline??null};busy=true;api({op:'command',room,id:session,message}).finally(()=>busy=false)}
 function updateCountdown(){const clock=document.querySelector('#response-countdown');if(!clock)return;const seconds=Math.max(0,Math.ceil((Number(clock.dataset.deadline)-Date.now())/1000));clock.textContent=`${seconds}s`;clock.classList.toggle('urgent',seconds<=5);}
+const targetDialog=document.querySelector('#target-dialog');
+function chooseTarget(action){
+ if(busy||!game||game.phase!=='turn'||game.turn!==game.me||targetDialog.open)return;
+ const opponents=game.players.filter(p=>p.id!==game.me&&p.count>0&&!p.left);
+ targetDialog.dataset.action=action;
+ document.querySelector('#target-title').textContent=action==='assassinate'?'Who will you assassinate?':action==='steal'?'Who will you steal from?':'Who will you coup?';
+ document.querySelector('#target-options').innerHTML=opponents.map(p=>`<button type="button" class="target-option" data-player="${esc(p.id)}"><img class="player-avatar" src="/avatars/${avatars[p.avatar]||avatars[0]}.png" alt=""><span><strong>${esc(p.name)}</strong><small>${p.coins} ${p.coins===1?'coin':'coins'} · ${p.count} influence</small></span></button>`).join('');
+ targetDialog.showModal();
+}
+document.querySelector('#target-cancel').addEventListener('click',()=>targetDialog.close());
+document.querySelector('#target-options').addEventListener('click',event=>{const button=event.target.closest('[data-player]');if(!button)return;const action=targetDialog.dataset.action;targetDialog.close();send({type:'action',action,target:button.dataset.player});});
 const leaveDialog=document.querySelector('#leave-dialog');
 let requestedNewGame=false;
 function confirmLeave(newGame=false){
@@ -71,11 +82,11 @@ function render(){if(!game){renderLanding();return}const g=game,me=g.players.fin
  let panel='';
  if(g.phase==='lobby'){panel=`<p>Share this link with your friends. The host can start once 2 players have joined.</p><p class="invite">${esc(location.href)}</p><div class="actions"><button id="copy">Copy invite link</button>${g.host===g.me?`<button class="primary" data-type="start" ${g.players.length<2?'disabled':''}>Start game</button>`:''}</div>`;}
  else if(g.phase==='finished'){panel=`<p>That was a convincing performance. Play another round with the same table?</p>${g.host===g.me?`<button class="primary" data-type="start" ${g.players.filter(p=>!p.left).length<2?'disabled':''}>Play again</button>`:'<p class="muted">Waiting for the host to start another game.</p>'}`;}
- else if(myturn){const others=g.players.filter(x=>x.id!==g.me&&x.count);if(!others.some(x=>x.id===target))target=others[0]?.id;panel=`<p>Choose an action. Character actions can be claimed whether or not you hold that card.</p><label for="target">Target for coup, assassination or steal</label><select id="target">${others.map(x=>`<option value="${esc(x.id)}" ${target===x.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select><div class="action-grid section">${Object.entries(names).map(([key,label])=>`<button class="action-tile" data-action="${key}">${icon(key,'action-icon')}<span><strong>${label}</strong><small>${descriptions[key]}</small></span></button>`).join('')}</div><p class="hint section">Bluff any role, even if it isn’t in your hand. Assassination costs 3 coins; a coup costs 7. With 10 or more coins, you must coup.</p>`;}
+ else if(myturn){panel=`<p>Choose an action. Character actions can be claimed whether or not you hold that card. For targeted actions, choose a player after selecting the action.</p><div class="action-grid section">${Object.entries(names).map(([key,label])=>`<button class="action-tile" data-action="${key}">${icon(key,'action-icon')}<span><strong>${label}</strong><small>${descriptions[key]}</small></span></button>`).join('')}</div><p class="hint section">Bluff any role, even if it isn’t in your hand. Assassination costs 3 coins; a coup costs 7. With 10 or more coins, you must coup.</p>`;}
  else if(g.phase==='lose'&&q.loser===g.me){panel=`<p>Choose one of your influence cards to reveal permanently.</p><div class="actions">${me.cards.map((c,i)=>`<button class="danger" data-lose="${i}">${icon(c)} Reveal ${esc(c)}</button>`).join('')}</div>`;}
  else if(g.phase==='exchange'&&q.actor===g.me){panel=`<p>Choose ${q.keep} card${q.keep===1?'':'s'} to keep. The rest return to the court deck.</p><div class="checks">${q.options.map((c,i)=>`<label><input type="checkbox" data-choice="${i}" ${selected.includes(i)?'checked':''}> ${icon(c)} ${esc(c)}</label>`).join('')}</div><button class="primary" id="exchange" ${selected.length!==q.keep?'disabled':''}>Keep selected</button>`;}
  else if(q&&q.waiting?.includes(g.me)&&!q.passed?.includes(g.me)&&['action-response','block-response','challenge-block'].includes(g.phase)){
-  const blocks=g.phase==='block-response'?(q.action==='aid'?['Duke']:q.action==='steal'?['Captain','Ambassador']:['Contessa']):[];
+  const blocks=g.phase==='block-response'?(q.action==='aid'?['Duke']:q.action==='steal'?['Captain','Ambassador']:['Contessa']):(g.phase==='action-response'&&q.action==='assassinate'&&q.target===g.me?['Contessa']:[]);
   panel=`<p>${name(q.actor)} declared <b>${esc(names[q.action])}</b>${q.target?' against '+name(q.target):''}. ${g.phase==='challenge-block'?`${name(q.blocker)} claims ${esc(q.blockRole)} to block.`:''}</p><div class="actions"><button data-type="pass">Pass</button>${g.phase!=='block-response'?'<button class="danger" data-type="challenge">Challenge claim</button>':''}${blocks.map(r=>`<button data-block="${r}">${icon(r)} Block as ${r}</button>`).join('')}</div><p class="hint section">Passing applies to this response window.</p>`;
  }else panel=`<p class="muted">${g.phase==='turn'?`Waiting for ${name(g.turn)} to choose an action.`:'Waiting for the table to respond.'}</p>`;
  if(timer)panel+=timer;
@@ -85,9 +96,8 @@ function render(){if(!game){renderLanding();return}const g=game,me=g.players.fin
  document.querySelector('#sound-toggle')?.addEventListener('click',()=>{soundEnabled=!soundEnabled;localStorage.setItem('coup:sound',soundEnabled?'on':'off');if(soundEnabled){unlockSound();playSound('click');}render()});
  document.querySelector('#exit-game')?.addEventListener('click',()=>confirmLeave());
  document.querySelector('#new-game')?.addEventListener('click',()=>confirmLeave(true));
- document.querySelector('#target')?.addEventListener('change',e=>target=e.target.value);
  document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>send({type:b.dataset.type}));
- document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>send({type:'action',action:b.dataset.action,target}));
+ document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const action=b.dataset.action;if(['coup','assassinate','steal'].includes(action))chooseTarget(action);else send({type:'action',action})});
  document.querySelectorAll('[data-block]').forEach(b=>b.onclick=()=>send({type:'block',role:b.dataset.block}));
  document.querySelectorAll('[data-lose]').forEach(b=>b.onclick=()=>send({type:'lose',index:Number(b.dataset.lose)}));
  document.querySelectorAll('[data-choice]').forEach(b=>b.onchange=()=>{selected=[...document.querySelectorAll('[data-choice]:checked')].map(x=>Number(x.dataset.choice));const button=document.querySelector('#exchange');button.disabled=selected.length!==q.keep});

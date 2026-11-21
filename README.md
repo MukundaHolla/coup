@@ -1,6 +1,6 @@
 # Coup for friends
 
-A small independent browser adaptation of the base game of Coup for 2–6 friends. Create a room, share its invite link, and play without accounts. The server enforces turns, challenges, blocks and hidden hands. Players have 15 seconds to challenge a character claim; anyone who does not respond automatically passes. Blocking decisions are untimed.
+A small independent browser adaptation of the base game of Coup for 2–6 friends. Create a room, share its invite link, and play without accounts. The server enforces turns, challenges, blocks and hidden hands. Players have 25 seconds to challenge a character claim; anyone who does not respond automatically passes. The assassination target can pass, challenge, or block as Contessa in that window; other block decisions remain untimed.
 
 ## Play locally
 
@@ -13,7 +13,7 @@ npm run dev
 
 Open http://localhost:3000. To play on the same local network, use your computer's LAN address and port 3000 instead; the built-in local server keeps rooms only in memory, so restarting it clears games. A local address is not accessible to friends over the internet without additional networking.
 
-Create a table, share the link and wait for 2–6 players. The host starts the game. Each player must use their own browser profile or device: a room seat is saved in local storage so a refresh can reconnect it. Clearing browser storage loses that seat. Keep the link private; anyone with it can join an open lobby. Do not share your browser session, because its token controls your seat. All eligible players can respond to a challenge; unanswered challenges automatically pass after 15 seconds. Blocking decisions do not have a timer. A disconnected player can reconnect in the same browser; there is no kick option. Use **Exit game** to leave; in an active game this forfeits your influence. **New game** leaves the current table and creates a fresh one. Rooms expire after 10 minutes without a player joining, leaving, or making a game move; merely keeping the page open does not reset the timer.
+Create a table, share the link and wait for 2–6 players. The host starts the game. Each player must use their own browser profile or device: a room seat is saved in local storage so a refresh can reconnect it. Clearing browser storage loses that seat. Keep the link private; anyone with it can join an open lobby. Do not share your browser session, because its token controls your seat. All eligible players can respond to a challenge; unanswered challenges automatically pass after 25 seconds. The assassination target can block as Contessa in the challenge window; other blocking decisions are untimed. A disconnected player can reconnect in the same browser; there is no kick option. Use **Exit game** to leave; in an active game this forfeits your influence. **New game** leaves the current table and creates a fresh one. Rooms expire after 10 minutes without a player joining, leaving, or making a game move; merely keeping the page open does not reset the timer.
 
 ## How a game is played
 
@@ -25,7 +25,7 @@ Create a table, share the link and wait for 2–6 players. The host starts the g
 
    ![Lobby with three players ready to start](docs/screenshots/02-lobby.jpg)
 
-3. **Take your turn.** Your own influence cards appear face up to you; other players’ cards stay hidden. Select a target if the action needs one, then choose an action. You can claim a character even when you do not hold it.
+3. **Take your turn.** Your own influence cards appear face up to you; other players’ cards stay hidden. Choose an action; for assassination, stealing or a coup, select a target in the popup. You can claim a character even when you do not hold it.
 
    ![A player choosing an action on their turn](docs/screenshots/03-your-turn.jpg)
 
@@ -46,9 +46,9 @@ The animation follows a complete game:
 3. **Join:** Friends use the invite link to join from separate browsers or devices. Each receives their own token and seat.
 4. **Start:** The host starts with 2–6 players. The room shuffles and deals two hidden cards each. Players receive two coins, except the starting player in a two-player game, who receives one.
 5. **Take a turn:** The current player sends an action and any target. The room checks the token, turn, cost and target. A claimed character may be a bluff.
-6. **Respond:** Other eligible players can challenge or pass on a claim. After 15 seconds, unanswered challenges automatically pass.
+6. **Respond:** Other eligible players can challenge or pass on a claim. After 25 seconds, unanswered challenges automatically pass.
 7. **Resolve a challenge:** A proven character card is shuffled back and replaced; the challenger loses influence. If the claim cannot be proven, the claimant loses influence instead. The loser chooses which card to reveal.
-8. **Block:** An eligible player may claim a role to block foreign aid, stealing or assassination. Others may challenge the block; the block decision itself is untimed.
+8. **Block:** An eligible player may claim a role to block foreign aid, stealing or assassination. Others may challenge the block; the assassination target can block in the timed response window; other block decisions are untimed.
 9. **Apply the action:** The room updates coins or influence. For an exchange, it draws two cards and lets the player select which cards to keep. It stores the updated state in SQLite.
 10. **Update views:** Visible browser tabs poll every 2.5 seconds. The room returns the public game state and only the requesting player’s hidden cards.
 11. **Finish or leave:** The last player with influence wins. The host can start a rematch; a player who exits during a game forfeits their influence.

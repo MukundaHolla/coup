@@ -25,12 +25,12 @@ stages=[
   'Players start with two coins; in a two-player game, the starting player gets one.'),
  ('05  DECLARE AN ACTION','On a turn, the browser sends the selected action, target and seat token to the Worker.',
   'The room checks the turn, coin cost and legal target; a claimed role may be a bluff.'),
- ('06  RESPOND TO A CLAIM','Eligible opponents can pass or challenge a character claim within a shared 15-second window.',
+ ('06  RESPOND TO A CLAIM','Eligible opponents can pass or challenge a character claim within a shared 25-second window.',
   'A room alarm automatically passes players who have not responded when time expires.'),
  ('07  RESOLVE A CHALLENGE','If challenged, the claimant proves the role or loses the challenge; otherwise the challenger loses.',
   'A proven card is shuffled back and replaced. The loser chooses an influence card to reveal.'),
  ('08  BLOCK AN ACTION','An eligible player may claim a role to block foreign aid, stealing or assassination.',
-  'Players may challenge a block. Block decisions themselves have no countdown.'),
+  'Players may challenge a block; the assassination target can block in the response window.'),
  ('09  APPLY THE RESULT','The room updates coins or influence, or lets an Ambassador choose cards to keep after a draw.',
   'It saves the resulting game state in the room’s SQLite storage and advances the turn.'),
  ('10  UPDATE EACH PLAYER','Browsers poll the Worker every 2.5 seconds while visible; the Worker contacts the room.',
@@ -87,7 +87,7 @@ def frame(index):
  d.text((842,274),'One room per game',font=F[18],fill=ink)
  d.text((842,304),'Rules + SQLite state',font=F[16],fill=muted)
  d.text((842,330),'Private views per player',font=F[16],fill=muted)
- d.text((842,356),'Alarms: 15s / 10 min',font=F[16],fill=muted)
+ d.text((842,356),'Alarms: 25s / 10 min',font=F[16],fill=muted)
  # two-way connections
  outbound=phase in (1,2,4);inbound=phase==9
  arrow(d,(335,275),(450,275),'#5e8551' if outbound else '#a69f92',active=outbound,progress=progress)
