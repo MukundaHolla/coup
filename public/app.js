@@ -10,8 +10,20 @@ const card=(role,cls='')=>`<div class="card ${cls}">${icon(role,'card-icon')}<sp
 const roles=`<div class="role-list"><p>${icon('Duke')} <b>Duke</b> · Take 3 coins; block foreign aid.</p><p>${icon('Assassin')} <b>Assassin</b> · Pay 3 coins to attack.</p><p>${icon('Captain')} <b>Captain</b> · Steal up to 2 coins; block stealing.</p><p>${icon('Ambassador')} <b>Ambassador</b> · Exchange cards; block stealing.</p><p>${icon('Contessa')} <b>Contessa</b> · Block assassination.</p></div><p>Anyone can challenge a claimed role. A failed challenge costs one influence. At 10 coins, you must coup.</p>`;
 async function api(body,quiet=false){try{const r=await fetch('/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error);if(d.id){localStorage.setItem('coup:'+d.room,d.id);location.href='/?room='+d.room;return}const changed=JSON.stringify(game)!==JSON.stringify(d.game);game=d.game;error='';if(changed||!quiet)render();}catch(e){if(/Room not found|game expired|Player session not found/.test(e.message)){if(room)localStorage.removeItem('coup:'+room);session=null;game=null;error=e.message;render();}else if(!quiet){error=e.message;render()}}}
 function send(message){if(busy)return;busy=true;api({op:'command',room,id:session,message}).finally(()=>busy=false)}
+const leaveDialog=document.querySelector('#leave-dialog');
+let requestedNewGame=false;
+function confirmLeave(newGame=false){
+ if(busy||leaveDialog.open)return;
+ requestedNewGame=newGame;
+ const active=game.phase!=='lobby'&&game.phase!=='finished'&&game.players.find(p=>p.id===game.me)?.count>0;
+ document.querySelector('#dialog-title').textContent=newGame?'Start a new game?':'Leave the table?';
+ document.querySelector('#dialog-description').textContent=(newGame?'You’ll leave this table and create a new one.':'You’ll leave this table and return to the start screen.')+(active?' Your remaining influence will be forfeited.':'');
+ document.querySelector('#dialog-confirm').textContent=newGame?'Start new game':'Exit game';
+ leaveDialog.showModal();
+}
+document.querySelector('#dialog-cancel').addEventListener('click',()=>leaveDialog.close());
+document.querySelector('#dialog-confirm').addEventListener('click',()=>{leaveDialog.close();leaveGame(requestedNewGame)});
 async function leaveGame(newGame=false){
- if(!confirm(newGame?'Leave this table and create a new game? If the game is in progress, you will forfeit.':'Leave this table? If the game is in progress, you will forfeit.'))return;
  if(busy)return;busy=true;
  try{const name=game.players.find(p=>p.id===game.me)?.name||'Player';const r=await fetch('/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op:'leave',room,id:session})});const d=await r.json();if(!r.ok)throw Error(d.error);localStorage.removeItem('coup:'+room);if(newGame){const next=await fetch('/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op:'create',name})});const result=await next.json();if(!next.ok)throw Error(result.error);localStorage.setItem('coup:'+result.room,result.id);location.href='/?room='+result.room;}else location.href='/';}
  catch(e){error=e.message;render()}finally{busy=false}
@@ -35,8 +47,8 @@ function render(){if(!game){renderLanding();return}const g=game,me=g.players.fin
  if(waiting) panel+=waiting;
  app.innerHTML=`<main class="shell"><header class="top"><div class="brand">COUP<span class="accent">.</span></div><span>THE COURT IS IN SESSION</span></header><div class="tablehead"><div><div class="eyebrow">Private table · ${g.players.length} players</div><h1>${status}</h1><div class="muted">${g.phase==='lobby'?'Gather your allies. Choose them carefully.':'Your influence is visible only to you.'}</div></div><div class="table-controls"><button id="copy">Copy invite link</button><button id="new-game">New game</button><button id="exit-game">Exit game</button></div></div><div class="layout"><div><div class="players">${g.players.map(x=>`<article class="player ${g.turn===x.id&&g.phase!=='lobby'&&g.phase!=='finished'?'current':''}"><h3>${esc(x.name)} ${x.id===g.me?'<small> · YOU</small>':''} ${x.id===g.host?'<small> · HOST</small>':''} ${x.left?'<small> · LEFT</small>':''}</h3>${g.phase==='lobby'?'<span class="muted">Ready to play</span>':`<span class="coins">${icon('income')} ${x.coins} coins</span><div class="cards">${x.cards?x.cards.map(c=>card(c)).join(''):Array.from({length:x.count},()=>card('influence','hidden')).join('')}${x.revealed.map(c=>card(c,'dead')).join('')}</div>`}</article>`).join('')}</div><section class="panel section"><div class="eyebrow">${myturn?'Your move':'The table'}</div><h2>${myturn?'Make your play':status}</h2>${panel}<div class="error" role="alert">${esc(error)}</div></section></div><aside><section class="panel"><div class="eyebrow">The court</div><h2>Game history</h2><ul class="history">${g.log.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section><section class="panel section roles"><details><summary>How to play</summary>${roles}<p>Income cannot be blocked. Anyone may block foreign aid as Duke. Only the target may block stealing or assassination. A coup costs 7 and cannot be blocked.</p></details></section></aside></div><div class="footer">Coup · An independent adaptation · 3–6 players</div></main>`;
  document.querySelectorAll('#copy').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(location.origin+'/?room='+room);b.textContent='Copied!'}catch{error='Copy the invite link from your address bar.';render()}});
- document.querySelector('#exit-game')?.addEventListener('click',()=>leaveGame());
- document.querySelector('#new-game')?.addEventListener('click',()=>leaveGame(true));
+ document.querySelector('#exit-game')?.addEventListener('click',()=>confirmLeave());
+ document.querySelector('#new-game')?.addEventListener('click',()=>confirmLeave(true));
  document.querySelector('#target')?.addEventListener('change',e=>target=e.target.value);
  document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>send({type:b.dataset.type}));
  document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>send({type:'action',action:b.dataset.action,target}));
