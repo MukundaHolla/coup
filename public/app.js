@@ -2,33 +2,22 @@ const app=document.querySelector('#app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const room=new URL(location.href).searchParams.get('room');
 let session=room?localStorage.getItem('coup:'+room):null, game=null, error='', busy=false, target='', selected=[];
-let soundEnabled=localStorage.getItem('coup:sound')!=='off', audioContext, coinBuffer;
-function loadCoinSound(){
- if(!coinBuffer)coinBuffer=fetch('/sounds/coin.mp3').then(r=>{if(!r.ok)throw Error('Sound unavailable');return r.arrayBuffer()}).then(data=>audioContext.decodeAudioData(data)).catch(()=>{coinBuffer=null;return null});
- return coinBuffer;
+let soundEnabled=localStorage.getItem('coup:sound')!=='off', audioContext;
+const soundBuffers={};
+function loadSound(kind){
+ if(!soundBuffers[kind])soundBuffers[kind]=fetch(`/sounds/${kind}.mp3`).then(r=>{if(!r.ok)throw Error('Sound unavailable');return r.arrayBuffer()}).then(data=>audioContext.decodeAudioData(data)).catch(()=>{delete soundBuffers[kind];return null});
+ return soundBuffers[kind];
 }
 function unlockSound(){
  if(!soundEnabled)return;
- try{const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;audioContext ||= new Audio();if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});loadCoinSound();}catch{}
+ try{const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;audioContext ||= new Audio();if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});loadSound('coin');loadSound('loss');}catch{}
 }
 document.addEventListener('pointerdown',unlockSound,{passive:true});
 document.addEventListener('keydown',unlockSound);
 function playSound(kind){
  if(!soundEnabled||!audioContext||audioContext.state!=='running')return;
  try{
-  if(kind==='coin'){
-   loadCoinSound().then(buffer=>{if(!buffer||!soundEnabled||audioContext.state!=='running')return;const source=audioContext.createBufferSource();const gain=audioContext.createGain();source.buffer=buffer;gain.gain.value=.55;source.connect(gain);gain.connect(audioContext.destination);source.start();}).catch(()=>{});
-   return;
-  }
-  const now=audioContext.currentTime;
-  const notes=[[440,0,.16],[370,.15,.18],[275,.31,.32]];
-  for(const [frequency,offset,duration] of notes){
-   const oscillator=audioContext.createOscillator(),gain=audioContext.createGain(),start=now+offset;
-   oscillator.type='sine';oscillator.frequency.setValueAtTime(frequency,start);
-   oscillator.frequency.exponentialRampToValueAtTime(frequency*.85,start+duration);
-   gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(.1,start+.015);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
-   oscillator.connect(gain);gain.connect(audioContext.destination);oscillator.start(start);oscillator.stop(start+duration+.02);
-  }
+  loadSound(kind).then(buffer=>{if(!buffer||!soundEnabled||audioContext.state!=='running')return;const source=audioContext.createBufferSource();const gain=audioContext.createGain();source.buffer=buffer;gain.gain.value=.55;source.connect(gain);gain.connect(audioContext.destination);source.start();}).catch(()=>{});
  }catch{}
 }
 function soundForUpdate(previous,next){
