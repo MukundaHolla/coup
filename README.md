@@ -35,6 +35,14 @@ Create a table, share the link and wait for 2–6 players. The host starts the g
 
 Screenshots show an example local game; room links and cards change each game.
 
+## Architecture
+
+![Animated architecture: player browsers communicate with a Cloudflare Worker, which routes game actions to a SQLite-backed Durable Object for each room.](docs/architecture.gif)
+
+The browser sends moves and polls for updates. The Worker routes each room to its own Durable Object, which enforces the rules, stores the game state, returns each player a private view, and schedules response and inactivity timeouts. The local Node server uses the same game rules with in-memory rooms.
+
+To regenerate the diagram, run `python3 scripts/generate_architecture.py` with Pillow installed.
+
 ## Cloudflare deployment
 
 The Worker in `src/worker.js` uses a SQLite-backed Durable Object per room; static files live in `public/`. Cloudflare's Workers Free plan includes Durable Objects, within [free usage limits](https://developers.cloudflare.com/durable-objects/platform/pricing/). Polling every 2.5 seconds consumes requests while a tab is active; limits can be reached, and free-tier availability is not guaranteed. Review your Cloudflare account's plan and limits before deploying.
@@ -48,7 +56,7 @@ npx cf build
 npx cf deploy
 ```
 
-Change the Worker name in `cloudflare.config.ts` if needed. Cloudflare account setup and a workers.dev subdomain may be required. Idle rooms are automatically removed after 10 minutes without player activity. The current implementation is intended for small private games, not a hardened public service: it has no rate limiting, moderation, lobby recovery or automatic expiry.
+Change the Worker name in `cloudflare.config.ts` if needed. Cloudflare account setup and a workers.dev subdomain may be required. Idle rooms are automatically removed after 10 minutes without player activity. The current implementation is intended for small private games, not a hardened public service: it has no rate limiting, moderation or lobby recovery.
 
 ## Rules and scope
 
