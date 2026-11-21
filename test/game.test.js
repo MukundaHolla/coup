@@ -52,3 +52,19 @@ test('players retain distinct avatars when lobby seats change and games start',(
  const original=g.players.map(p=>p.avatar);assert.equal(new Set(original).size,3);
  command(g,'a',{type:'start'});assert.deepEqual(g.players.map(p=>p.avatar),original);
 });
+
+test('two-player game uses the standard opening coins and supports a rematch',()=>{
+ const g=create();join(g,'a','a');assert.throws(()=>command(g,'a',{type:'start'}),/2–6/);join(g,'b','b');command(g,'a',{type:'start'});
+ assert.deepEqual(g.players.map(p=>p.coins),[1,2]);assert.equal(g.deck.length,11);
+ command(g,'a',{type:'action',action:'income'});assert.equal(g.players[g.turn].id,'b');
+ g.players[1].coins=7;g.players[0].cards=['Duke'];command(g,'b',{type:'action',action:'coup',target:'a'});command(g,'a',{type:'lose',index:0});
+ assert.equal(g.winner,'b');command(g,'a',{type:'start'});assert.deepEqual(g.players.map(p=>p.coins),[1,2]);
+});
+test('two players can challenge and block claims',()=>{
+ const g=create();join(g,'a','a');join(g,'b','b');command(g,'a',{type:'start'});
+ g.players[0].cards=['Captain','Assassin'];g.players[1].cards=['Contessa','Duke'];g.players[0].coins=3;
+ command(g,'a',{type:'action',action:'assassinate',target:'b'});command(g,'b',{type:'pass'});
+ assert.equal(g.phase,'block-response');command(g,'b',{type:'block',role:'Contessa'});
+ command(g,'a',{type:'challenge'});assert.equal(g.phase,'lose');command(g,'a',{type:'lose',index:0});
+ assert.equal(g.phase,'turn');assert.equal(g.players[g.turn].id,'b');
+});

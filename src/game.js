@@ -23,10 +23,11 @@ export function join(g,id,name) {
 }
 function start(g,id) {
  if(g.players.find(p=>!p.left)?.id!==id) fail('Only the host can start.');
- if(!['lobby','finished'].includes(g.phase)||g.players.filter(p=>!p.left).length<3) fail('You need 3–6 players.');
+ if(!['lobby','finished'].includes(g.phase)||g.players.filter(p=>!p.left).length<2) fail('You need 2–6 players.');
  g.players=g.players.filter(p=>!p.left);
  g.deck=shuffle(ROLES.flatMap(r=>[r,r,r]));
  for(const p of g.players){p.coins=2;p.cards=[g.deck.pop(),g.deck.pop()];p.revealed=[];}
+ if(g.players.length===2)g.players[0].coins=1;
  g.turn=0;g.phase='turn';g.pending=null;g.log=[];log(g,`${g.players[0].name} starts the game.`);
 }
 export function leave(g,id) {

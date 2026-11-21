@@ -1,6 +1,6 @@
 # Coup for friends
 
-A small independent browser adaptation of the base game of Coup for 3–6 friends. Create a room, share its invite link, and play without accounts. The server enforces turns, challenges, blocks and hidden hands. Players explicitly pass when they don't want to respond; there are no response timers.
+A small independent browser adaptation of the base game of Coup for 2–6 friends. Create a room, share its invite link, and play without accounts. The server enforces turns, challenges, blocks and hidden hands. Players explicitly pass when they don't want to respond; there are no response timers.
 
 ## Play locally
 
@@ -13,7 +13,7 @@ npm run dev
 
 Open http://localhost:3000. To play on the same local network, use your computer's LAN address and port 3000 instead; the built-in local server keeps rooms only in memory, so restarting it clears games. A local address is not accessible to friends over the internet without additional networking.
 
-Create a table, share the link and wait for 3–6 players. The host starts the game. Each player must use their own browser profile or device: a room seat is saved in local storage so a refresh can reconnect it. Clearing browser storage loses that seat. Keep the link private; anyone with it can join an open lobby. Do not share your browser session, because its token controls your seat. All living players must respond to each applicable challenge or block window to advance. A disconnected player can reconnect in the same browser; there is no kick option. Use **Exit game** to leave; in an active game this forfeits your influence. **New game** leaves the current table and creates a fresh one. Rooms expire after 10 minutes without a player joining, leaving, or making a game move; merely keeping the page open does not reset the timer.
+Create a table, share the link and wait for 2–6 players. The host starts the game. Each player must use their own browser profile or device: a room seat is saved in local storage so a refresh can reconnect it. Clearing browser storage loses that seat. Keep the link private; anyone with it can join an open lobby. Do not share your browser session, because its token controls your seat. All living players must respond to each applicable challenge or block window to advance. A disconnected player can reconnect in the same browser; there is no kick option. Use **Exit game** to leave; in an active game this forfeits your influence. **New game** leaves the current table and creates a fresh one. Rooms expire after 10 minutes without a player joining, leaving, or making a game move; merely keeping the page open does not reset the timer.
 
 ## How a game is played
 
@@ -21,7 +21,7 @@ Create a table, share the link and wait for 3–6 players. The host starts the g
 
    ![Create a table screen](docs/screenshots/01-create-table.jpg)
 
-2. **Invite your friends.** Copy the invite link and share it. Once 3–6 players have joined, the host starts the game.
+2. **Invite your friends.** Copy the invite link and share it. Once 2–6 players have joined, the host starts the game.
 
    ![Lobby with three players ready to start](docs/screenshots/02-lobby.jpg)
 
@@ -52,6 +52,6 @@ Change the Worker name in `cloudflare.config.ts` if needed. Cloudflare account s
 
 ## Rules and scope
 
-The base game uses three each of Duke, Assassin, Captain, Ambassador and Contessa. Character actions and blocks can be bluffed; claims can be challenged. Losing a challenge costs influence; a proven card is shuffled back and replaced. A coup costs seven coins and must be taken at ten or more. The last player with influence wins. See the [rulebook](https://northstreetgames.com/images/Rulebooks/Coup-Rules.pdf). The optional two-player setup and expansions are not included. Original game designed by Rikki Tahta; this is an independent fan implementation and is not affiliated with its publisher.
+The base game uses three each of Duke, Assassin, Captain, Ambassador and Contessa. Character actions and blocks can be bluffed; claims can be challenged. Losing a challenge costs influence; a proven card is shuffled back and replaced. A coup costs seven coins and must be taken at ten or more. The last player with influence wins. See the [rulebook](https://northstreetgames.com/images/Rulebooks/Coup-Rules.pdf). In a two-player game, the starting player receives one coin and the other receives two. The optional two-player character-selection variant and expansions are not included. Original game designed by Rikki Tahta; this is an independent fan implementation and is not affiliated with its publisher.
 
 See [PLAN.md](PLAN.md) for the implementation plan.
