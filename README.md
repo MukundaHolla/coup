@@ -13,7 +13,7 @@ npm run dev
 
 Open http://localhost:3000. To play on the same local network, use your computer's LAN address and port 3000 instead; the built-in local server keeps rooms only in memory, so restarting it clears games. A local address is not accessible to friends over the internet without additional networking.
 
-Create a table, share the link and wait for 3–6 players. The host starts the game. Each player must use their own browser profile or device: a room seat is saved in local storage so a refresh can reconnect it. Clearing browser storage loses that seat. Keep the link private; anyone with it can join an open lobby. Do not share your browser session, because its token controls your seat. All living players must respond to each applicable challenge or block window to advance. A disconnected player can reconnect in the same browser; there is no kick or timeout yet.
+Create a table, share the link and wait for 3–6 players. The host starts the game. Each player must use their own browser profile or device: a room seat is saved in local storage so a refresh can reconnect it. Clearing browser storage loses that seat. Keep the link private; anyone with it can join an open lobby. Do not share your browser session, because its token controls your seat. All living players must respond to each applicable challenge or block window to advance. A disconnected player can reconnect in the same browser; there is no kick option. Use **Exit game** to leave; in an active game this forfeits your influence. **New game** leaves the current table and creates a fresh one. Rooms expire after 10 minutes without a player joining, leaving, or making a game move; merely keeping the page open does not reset the timer.
 
 ## How a game is played
 
@@ -48,7 +48,7 @@ npx cf build
 npx cf deploy
 ```
 
-Change the Worker name in `cloudflare.config.ts` if needed. Cloudflare account setup and a workers.dev subdomain may be required. This project does not automatically delete old rooms; storage accumulates as rooms are created. The current implementation is intended for small private games, not a hardened public service: it has no rate limiting, moderation, lobby recovery or automatic expiry.
+Change the Worker name in `cloudflare.config.ts` if needed. Cloudflare account setup and a workers.dev subdomain may be required. Idle rooms are automatically removed after 10 minutes without player activity. The current implementation is intended for small private games, not a hardened public service: it has no rate limiting, moderation, lobby recovery or automatic expiry.
 
 ## Rules and scope
 

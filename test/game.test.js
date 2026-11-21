@@ -36,3 +36,14 @@ test('a player may bluff assassination without the Assassin and responders are v
  command(g,'b',{type:'pass'});assert.deepEqual(view(g,'a').pending.passed,['b']);
  command(g,'c',{type:'challenge'});assert.equal(g.phase,'lose');assert.equal(g.pending.loser,'a');
 });
+test('leaving during a response removes the player from the waiting list',async()=>{
+ const {leave}=await import('../src/game.js');const g=setup();
+ command(g,'a',{type:'action',action:'tax'});command(g,'b',{type:'pass'});leave(g,'c');
+ assert.equal(g.phase,'turn');assert.equal(g.players[0].coins,5);assert.equal(g.players[2].left,true);assert.equal(g.players[g.turn].id,'b');
+});
+test('leaving on your turn forfeits influence and awards the last player',async()=>{
+ const {leave}=await import('../src/game.js');const g=setup();leave(g,'a');assert.equal(g.players[g.turn].id,'b');leave(g,'b');assert.equal(g.phase,'finished');assert.equal(g.winner,'c');
+});
+test('leaving during an exchange returns the drawn cards to the deck',async()=>{
+ const {leave}=await import('../src/game.js');const g=setup();command(g,'a',{type:'action',action:'exchange'});pass(g,'b','c');assert.equal(g.deck.length,7);leave(g,'a');assert.equal(g.deck.length,9);assert.equal(g.players[g.turn].id,'b');
+});

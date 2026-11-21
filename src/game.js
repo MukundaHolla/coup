@@ -18,11 +18,32 @@ export function join(g,id,name) {
  g.players.push({id,name,coins:0,cards:[],revealed:[]}); log(g,`${name} joined the table.`);
 }
 function start(g,id) {
- if(g.players[0]?.id!==id) fail('Only the host can start.');
- if(!['lobby','finished'].includes(g.phase)||g.players.length<3) fail('You need 3–6 players.');
+ if(g.players.find(p=>!p.left)?.id!==id) fail('Only the host can start.');
+ if(!['lobby','finished'].includes(g.phase)||g.players.filter(p=>!p.left).length<3) fail('You need 3–6 players.');
+ g.players=g.players.filter(p=>!p.left);
  g.deck=shuffle(ROLES.flatMap(r=>[r,r,r]));
  for(const p of g.players){p.coins=2;p.cards=[g.deck.pop(),g.deck.pop()];p.revealed=[];}
  g.turn=0;g.phase='turn';g.pending=null;g.log=[];log(g,`${g.players[0].name} starts the game.`);
+}
+export function leave(g,id) {
+ const p=player(g,id);if(p.left) fail('Player has already left.');
+ if(g.phase==='lobby'||g.phase==='finished') {
+  g.players=g.players.filter(x=>x.id!==id);log(g,`${p.name} left the table.`);return;
+ }
+ const q=g.pending, wasAlive=alive(p);
+ if(g.phase==='exchange'&&q.actor===id) g.deck.push(...q.options.slice(p.cards.length));
+ p.revealed.push(...p.cards);p.cards=[];p.left=true;log(g,`${p.name} left the game${wasAlive?' and forfeited':''}.`);
+ if(!g.players.some(x=>!x.left)) return;
+ if(!wasAlive) return;
+ if(g.players.filter(alive).length===1) return next(g);
+ if(g.phase==='turn'){if(g.players[g.turn].id===id)next(g);return;}
+ if(q.actor===id||q.target===id) return next(g);
+ if(q.blocker===id) return resolve(g);
+ if(g.phase==='lose'&&q.loser===id) return afterLoss(g);
+ if(['action-response','block-response','challenge-block'].includes(g.phase)){
+  q.waiting=q.waiting.filter(x=>x!==id);q.passed=q.passed.filter(x=>x!==id);
+  if(q.waiting.every(x=>q.passed.includes(x)))advance(g);
+ }
 }
 function next(g) {
  const remaining=g.players.filter(alive);
@@ -112,5 +133,5 @@ export function command(g,id,msg) {
 }
 export function view(g,id) {
  const me=player(g,id),q=g.pending;
- return {phase:g.phase,me:id,host:g.players[0].id,turn:g.players[g.turn]?.id,winner:g.winner,players:g.players.map(p=>({id:p.id,name:p.name,coins:p.coins,count:p.cards.length,revealed:p.revealed,cards:p.id===id?p.cards:undefined})),log:g.log,pending:q?{action:q.action,actor:q.actor,target:q.target,blocker:q.blocker,blockRole:q.blockRole,waiting:q.waiting,passed:q.passed,loser:q.loser,options:g.phase==='exchange'&&q.actor===id?q.options:undefined,keep:g.phase==='exchange'&&q.actor===id?q.keep:undefined}:null};
+ return {phase:g.phase,me:id,host:g.players.find(p=>!p.left)?.id,turn:g.players[g.turn]?.id,winner:g.winner,players:g.players.map(p=>({id:p.id,name:p.name,coins:p.coins,count:p.cards.length,revealed:p.revealed,left:!!p.left,cards:p.id===id?p.cards:undefined})),log:g.log,pending:q?{action:q.action,actor:q.actor,target:q.target,blocker:q.blocker,blockRole:q.blockRole,waiting:q.waiting,passed:q.passed,loser:q.loser,options:g.phase==='exchange'&&q.actor===id?q.options:undefined,keep:g.phase==='exchange'&&q.actor===id?q.keep:undefined}:null};
 }
