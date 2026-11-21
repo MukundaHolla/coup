@@ -13,8 +13,8 @@ const server=http.createServer(async(req,res)=>{
    const {state,result}=processRoom(rooms.get(code),body);if(state)rooms.set(code,state);else rooms.delete(code);
    res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({...result,room:code}));
   }
-  const paths={'/':'index.html','/app.js':'app.js','/style.css':'style.css','/favicon.svg':'favicon.svg'};const path=paths[url.pathname];if(!path){res.writeHead(404);return res.end('Not found');}
-  const data=await readFile(new URL(path,root));res.writeHead(200,{'content-type':path.endsWith('.svg')?'image/svg+xml':path.endsWith('.css')?'text/css':path.endsWith('.js')?'text/javascript':'text/html'});res.end(data);
+  const paths={'/':'index.html','/app.js':'app.js','/style.css':'style.css','/favicon.svg':'favicon.svg',...Object.fromEntries(['gorilla','rhino','gamer','ape','koala','penguin'].map(name=>[`/avatars/${name}.png`,`avatars/${name}.png`]))};const path=paths[url.pathname];if(!path){res.writeHead(404);return res.end('Not found');}
+  const data=await readFile(new URL(path,root));res.writeHead(200,{'content-type':path.endsWith('.png')?'image/png':path.endsWith('.svg')?'image/svg+xml':path.endsWith('.css')?'text/css':path.endsWith('.js')?'text/javascript':'text/html'});res.end(data);
  }catch(e){res.writeHead(400,{'content-type':'application/json'});res.end(JSON.stringify({error:e.message}));}
 });
 server.listen(process.env.PORT||3000,'0.0.0.0',()=>console.log(`Coup running at http://localhost:${process.env.PORT||3000}`));

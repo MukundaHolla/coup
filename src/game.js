@@ -15,7 +15,11 @@ export function join(g,id,name) {
  if(g.players.length>=6) fail('This room is full.');
  name=String(name||'').trim().slice(0,20); if(!name) fail('Enter your name.');
  if(g.players.some(p=>p.name.toLowerCase()===name.toLowerCase())) fail('That name is already taken.');
- g.players.push({id,name,coins:0,cards:[],revealed:[]}); log(g,`${name} joined the table.`);
+ // Preserve seats in rooms created before avatars were introduced.
+ const used=new Set(g.players.filter(p=>Number.isInteger(p.avatar)).map(p=>p.avatar));
+ for(const p of g.players){if(!Number.isInteger(p.avatar)){p.avatar=[0,1,2,3,4,5].find(i=>!used.has(i));used.add(p.avatar);}}
+ const avatar=[0,1,2,3,4,5].find(i=>!used.has(i));
+ g.players.push({id,name,avatar,coins:0,cards:[],revealed:[]}); log(g,`${name} joined the table.`);
 }
 function start(g,id) {
  if(g.players.find(p=>!p.left)?.id!==id) fail('Only the host can start.');
@@ -133,5 +137,5 @@ export function command(g,id,msg) {
 }
 export function view(g,id) {
  const me=player(g,id),q=g.pending;
- return {phase:g.phase,me:id,host:g.players.find(p=>!p.left)?.id,turn:g.players[g.turn]?.id,winner:g.winner,players:g.players.map(p=>({id:p.id,name:p.name,coins:p.coins,count:p.cards.length,revealed:p.revealed,left:!!p.left,cards:p.id===id?p.cards:undefined})),log:g.log,pending:q?{action:q.action,actor:q.actor,target:q.target,blocker:q.blocker,blockRole:q.blockRole,waiting:q.waiting,passed:q.passed,loser:q.loser,options:g.phase==='exchange'&&q.actor===id?q.options:undefined,keep:g.phase==='exchange'&&q.actor===id?q.keep:undefined}:null};
+ return {phase:g.phase,me:id,host:g.players.find(p=>!p.left)?.id,turn:g.players[g.turn]?.id,winner:g.winner,players:g.players.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar??i,coins:p.coins,count:p.cards.length,revealed:p.revealed,left:!!p.left,cards:p.id===id?p.cards:undefined})),log:g.log,pending:q?{action:q.action,actor:q.actor,target:q.target,blocker:q.blocker,blockRole:q.blockRole,waiting:q.waiting,passed:q.passed,loser:q.loser,options:g.phase==='exchange'&&q.actor===id?q.options:undefined,keep:g.phase==='exchange'&&q.actor===id?q.keep:undefined}:null};
 }

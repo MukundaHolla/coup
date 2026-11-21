@@ -47,3 +47,8 @@ test('leaving on your turn forfeits influence and awards the last player',async(
 test('leaving during an exchange returns the drawn cards to the deck',async()=>{
  const {leave}=await import('../src/game.js');const g=setup();command(g,'a',{type:'action',action:'exchange'});pass(g,'b','c');assert.equal(g.deck.length,7);leave(g,'a');assert.equal(g.deck.length,9);assert.equal(g.players[g.turn].id,'b');
 });
+test('players retain distinct avatars when lobby seats change and games start',()=>{
+ const g=create();for(const id of ['a','b','c'])join(g,id,id);
+ const original=g.players.map(p=>p.avatar);assert.equal(new Set(original).size,3);
+ command(g,'a',{type:'start'});assert.deepEqual(g.players.map(p=>p.avatar),original);
+});
