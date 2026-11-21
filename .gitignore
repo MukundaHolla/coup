@@ -1,0 +1,6 @@
+node_modules/
+.cf/
+.dev.vars
+.DS_Store
+.cloudflare/
+dist/
