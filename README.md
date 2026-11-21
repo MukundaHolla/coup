@@ -39,7 +39,22 @@ Screenshots show an example local game; room links and cards change each game.
 
 ![Animated architecture: player browsers communicate with a Cloudflare Worker, which routes game actions to a SQLite-backed Durable Object for each room.](docs/architecture.gif)
 
-The browser sends moves and polls for updates. The Worker routes each room to its own Durable Object, which enforces the rules, stores the game state, returns each player a private view, and schedules response and inactivity timeouts. The local Node server uses the same game rules with in-memory rooms.
+The animation follows a complete game:
+
+1. **Load:** Each player opens the browser app, which the Worker serves. No login is required.
+2. **Create a room:** The host enters a name. The Worker generates a room code and routes it to a Durable Object. The room gives the host a private seat token, stored in the browser.
+3. **Join:** Friends use the invite link to join from separate browsers or devices. Each receives their own token and seat.
+4. **Start:** The host starts with 2–6 players. The room shuffles and deals two hidden cards each. Players receive two coins, except the starting player in a two-player game, who receives one.
+5. **Take a turn:** The current player sends an action and any target. The room checks the token, turn, cost and target. A claimed character may be a bluff.
+6. **Respond:** Other eligible players can challenge or pass on a claim. After 15 seconds, unanswered challenges automatically pass.
+7. **Resolve a challenge:** A proven character card is shuffled back and replaced; the challenger loses influence. If the claim cannot be proven, the claimant loses influence instead. The loser chooses which card to reveal.
+8. **Block:** An eligible player may claim a role to block foreign aid, stealing or assassination. Others may challenge the block; the block decision itself is untimed.
+9. **Apply the action:** The room updates coins or influence. For an exchange, it draws two cards and lets the player select which cards to keep. It stores the updated state in SQLite.
+10. **Update views:** Visible browser tabs poll every 2.5 seconds. The room returns the public game state and only the requesting player’s hidden cards.
+11. **Finish or leave:** The last player with influence wins. The host can start a rematch; a player who exits during a game forfeits their influence.
+12. **Clean up:** A room alarm clears a game after 10 minutes without player activity. Polling alone does not reset that timer.
+
+For local development, the Node server uses the same game rules with rooms held in memory.
 
 To regenerate the diagram, run `python3 scripts/generate_architecture.py` with Pillow installed.
 
